@@ -1,3 +1,6 @@
+//TODO:RED:     255     72      0       255
+//TODO:BLUE:    0       107     197     255
+
 package org.opencv.samples.colorblobdetect;
 
 import java.util.List;
@@ -157,6 +160,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
                 ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
 
+        Log.println(Log.ASSERT,"RGBA:\t",mBlobColorRgba.val[0]+","+mBlobColorRgba.val[1]+","+mBlobColorRgba.val[2]+
+                           ","+mBlobColorRgba.val[3]);
+
         mDetector.setHsvColor(mBlobColorHsv);
 
         Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
@@ -176,7 +182,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             mDetector.process(mRgba);
             List<MatOfPoint> contours = mDetector.getContours();
             Log.e(TAG, "Contours count: " + contours.size());
-            Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR);
+            //Change was to the 2 from -1.
+            Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 50);
 
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);

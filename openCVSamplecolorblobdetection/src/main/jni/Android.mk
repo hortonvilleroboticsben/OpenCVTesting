@@ -2,16 +2,16 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-export OPENCV_ANDROID_SDK=/Users/dan.nickchen/Documents/OpenCV-android-sdk
+export OPENCV_ANDROID_SDK=C:\Users\Hortonville\Downloads\opencv-3.3.0-android-sdk\OpenCV-android-sdk
 
 OPENCV_INSTALL_MODULES:=on
 #OPENCV_CAMERA_MODULES:=on
 #OPENCV_LIB_TYPE:=SHARED
 ifdef OPENCV_ANDROID_SDK
   ifneq ("","$(wildcard $(OPENCV_ANDROID_SDK)/OpenCV.mk)")
-    include ${OPENCV_ANDROID_SDK}/OpenCV.mk
+    include ${OPENCV_ANDROID_SDK}\OpenCV-x86.mk
   else
-    include ${OPENCV_ANDROID_SDK}/sdk/native/jni/OpenCV.mk
+    include ${OPENCV_ANDROID_SDK}\sdk\native\jni\OpenCV-x86.mk
   endif
 endif
 

@@ -30,14 +30,22 @@ import android.view.SurfaceView;
 public class ColorBlobDetectionActivity extends Activity implements OnTouchListener, CvCameraViewListener2 {
     private static final String  TAG              = "OCVSample::Activity";
 
-    private boolean              mIsColorSelected = false;
+    private int colorSelectCount = 0;
+
     private Mat                  mRgba;
+
     private Scalar               mBlobColorRgba;
     private Scalar               mBlobColorHsv;
-    private ColorBlobDetector    mDetector;
-    private Mat                  mSpectrum;
+
+    private ColorBlobDetector    mDetectorRed;
+    private ColorBlobDetector    mDetectorBlue;
+
+    private Mat                  mSpectrumRed;
+    private Mat                  mSpectrumBlue;
     private Size                 SPECTRUM_SIZE;
-    private Scalar               CONTOUR_COLOR;
+
+    private Scalar               CONTOUR_COLOR_RED;
+    private Scalar               CONTOUR_COLOR_BLUE;
 
     private CameraBridgeViewBase mOpenCvCameraView;
 
@@ -107,12 +115,19 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     public void onCameraViewStarted(int width, int height) {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
-        mDetector = new ColorBlobDetector();
-        mSpectrum = new Mat();
+
+        mDetectorRed = new ColorBlobDetector();
+        mDetectorBlue = new ColorBlobDetector();
+
+        mSpectrumRed = new Mat();
+        mSpectrumBlue = new Mat();
+
         mBlobColorRgba = new Scalar(255);
-        mBlobColorHsv = new Scalar(255);
+
         SPECTRUM_SIZE = new Size(200, 64);
-        CONTOUR_COLOR = new Scalar(0,255,0,255);
+
+        CONTOUR_COLOR_RED = new Scalar(0,255,255,255);
+        CONTOUR_COLOR_BLUE = new Scalar(255,255,0,255);
     }
 
     public void onCameraViewStopped() {
@@ -157,11 +172,13 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
                 ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
 
-        mDetector.setHsvColor(mBlobColorHsv);
-
-        Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
-
-        mIsColorSelected = true;
+        if (colorSelectCount++ % 2 == 1) {
+            mDetectorRed.setHsvColor(mBlobColorHsv);
+            Imgproc.resize(mDetectorRed.getSpectrum(), mSpectrumRed, SPECTRUM_SIZE);
+        } else {
+            mDetectorBlue.setHsvColor(mBlobColorHsv);
+            Imgproc.resize(mDetectorBlue.getSpectrum(), mSpectrumBlue, SPECTRUM_SIZE);
+        }
 
         touchedRegionRgba.release();
         touchedRegionHsv.release();
@@ -172,17 +189,29 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
-        if (mIsColorSelected) {
-            mDetector.process(mRgba);
-            List<MatOfPoint> contours = mDetector.getContours();
-            Log.e(TAG, "Contours count: " + contours.size());
-            Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR);
+        if (colorSelectCount > 0) {
+            Imgproc.blur(mRgba,mRgba,new Size(20,20));
+
+            mDetectorRed.process(mRgba);
+            mDetectorBlue.process(mRgba);
+
+            List<MatOfPoint> contoursRed = mDetectorRed.getContours();
+            Log.e(TAG, "Contours count: " + contoursRed.size());
+            Imgproc.drawContours(mRgba, contoursRed, -1, CONTOUR_COLOR_RED);
+
+            List<MatOfPoint> contoursBlue = mDetectorBlue.getContours();
+            Log.e(TAG, "Contours count: " + contoursBlue.size());
+            Imgproc.drawContours(mRgba, contoursBlue, -1, CONTOUR_COLOR_BLUE);
 
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);
 
-            Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
-            mSpectrum.copyTo(spectrumLabel);
+            Mat spectrumLabelRed = mRgba.submat(4, 4 + mSpectrumRed.rows(), 70, 70 + mSpectrumRed.cols());
+            mSpectrumRed.copyTo(spectrumLabelRed);
+
+            Mat spectrumLabelBlue = mRgba.submat(4, 4 + mSpectrumBlue.rows(), 70, 70 + mSpectrumBlue.cols());
+            mSpectrumRed.copyTo(spectrumLabelBlue);
+
         }
 
         return mRgba;

@@ -132,8 +132,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mDetectorRed = new ColorBlobDetector();
         mDetectorBlue = new ColorBlobDetector();
 
-        //mSpectrumRed = new Mat();
-        //mSpectrumBlue = new Mat();
+        mSpectrumRed = new Mat();
+        mSpectrumBlue = new Mat();
 
         mBlobColorRgba = new Scalar(255);
 
@@ -210,11 +210,11 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
             List<MatOfPoint> contoursRed = mDetectorRed.getContours();
             Log.e(TAG, "Contours count: " + contoursRed.size());
-            Imgproc.drawContours(mRgba, contoursRed, -1, CONTOUR_COLOR_RED);
+            //Imgproc.drawContours(mRgba, contoursRed, -1, CONTOUR_COLOR_RED);
 
             List<MatOfPoint> contoursBlue = mDetectorBlue.getContours();
             Log.e(TAG, "Contours count: " + contoursBlue.size());
-            Imgproc.drawContours(mRgba, contoursBlue, -1, CONTOUR_COLOR_BLUE);
+            //Imgproc.drawContours(mRgba, contoursBlue, -1, CONTOUR_COLOR_BLUE);
 
             List<Moments> muRed = new ArrayList<Moments>(contoursRed.size());
 

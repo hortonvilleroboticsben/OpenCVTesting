@@ -1,5 +1,6 @@
 package org.opencv.samples.colorblobdetect;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -10,12 +11,15 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -27,12 +31,19 @@ import android.view.WindowManager;
 import android.view.View.OnTouchListener;
 import android.view.SurfaceView;
 
+import static android.R.attr.radius;
+import static android.R.attr.x;
+import static android.R.attr.y;
+import static org.opencv.imgproc.Imgproc.minEnclosingCircle;
+import static org.opencv.imgproc.Imgproc.moments;
+
 public class ColorBlobDetectionActivity extends Activity implements OnTouchListener, CvCameraViewListener2 {
     private static final String  TAG              = "OCVSample::Activity";
 
     private int colorSelectCount = 0;
 
     private Mat                  mRgba;
+    private Mat                  mROI;
 
     private Scalar               mBlobColorRgba;
     private Scalar               mBlobColorHsv;
@@ -116,18 +127,20 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     public void onCameraViewStarted(int width, int height) {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
 
+        Log.d(TAG, "DJN: Width: " + width + " Height: " + height );
+
         mDetectorRed = new ColorBlobDetector();
         mDetectorBlue = new ColorBlobDetector();
 
-        mSpectrumRed = new Mat();
-        mSpectrumBlue = new Mat();
+        //mSpectrumRed = new Mat();
+        //mSpectrumBlue = new Mat();
 
         mBlobColorRgba = new Scalar(255);
 
         SPECTRUM_SIZE = new Size(200, 64);
 
-        CONTOUR_COLOR_RED = new Scalar(0,255,255,255);
-        CONTOUR_COLOR_BLUE = new Scalar(255,255,0,255);
+        CONTOUR_COLOR_RED = new Scalar(255,0,0,255);
+        CONTOUR_COLOR_BLUE = new Scalar(0,0,255,255);
     }
 
     public void onCameraViewStopped() {
@@ -172,7 +185,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
                 ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
 
-        if (colorSelectCount++ % 2 == 1) {
+        if (colorSelectCount++ % 2 == 0) {
             mDetectorRed.setHsvColor(mBlobColorHsv);
             Imgproc.resize(mDetectorRed.getSpectrum(), mSpectrumRed, SPECTRUM_SIZE);
         } else {
@@ -203,14 +216,82 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             Log.e(TAG, "Contours count: " + contoursBlue.size());
             Imgproc.drawContours(mRgba, contoursBlue, -1, CONTOUR_COLOR_BLUE);
 
+            List<Moments> muRed = new ArrayList<Moments>(contoursRed.size());
+
+            Point centerRed = new Point();
+
+            List<MatOfPoint2f> contours2fRed   = new ArrayList<MatOfPoint2f>();
+            List<MatOfPoint2f> polyMOP2fRed    = new ArrayList<MatOfPoint2f>();
+            List<MatOfPoint> polyMOPRed        = new ArrayList<MatOfPoint>();
+
+            float[] radiusRed     = new float[contoursRed.size()];
+
+            for (int i = 0; i < contoursRed.size(); i++) {
+                muRed.add(i, Imgproc.moments(contoursRed.get(i), false));
+                Moments p = muRed.get(i);
+                int x = (int) (p.get_m10() / p.get_m00());
+                int y = (int) (p.get_m01() / p.get_m00());
+                Imgproc.circle(mRgba, new Point(x, y), 16, CONTOUR_COLOR_RED, 16);
+
+                contours2fRed.add(new MatOfPoint2f());
+                polyMOP2fRed.add(new MatOfPoint2f());
+                polyMOPRed.add(new MatOfPoint());
+
+                contoursRed.get(i).convertTo(contours2fRed.get(i), CvType.CV_32FC2);
+                Imgproc.approxPolyDP(contours2fRed.get(i), polyMOP2fRed.get(i), 3, true);
+                polyMOP2fRed.get(i).convertTo(polyMOPRed.get(i), CvType.CV_32S);
+
+                minEnclosingCircle(polyMOP2fRed.get(i),centerRed,radiusRed);
+                Imgproc.circle(mRgba, new Point(x, y), 16, CONTOUR_COLOR_RED, 16);
+                Imgproc.circle(mRgba, centerRed, (int)radiusRed[i], CONTOUR_COLOR_RED, 16);
+                Log.e(TAG, "Red Center: (" + (int)centerRed.x + "," + (int)centerRed.y + ") with radius: " + (int)radiusRed[i]);
+            }
+
+            List<Moments> muBlue = new ArrayList<Moments>(contoursBlue.size());
+            Point centerBlue = new Point();
+
+            List<MatOfPoint2f> contours2fBlue   = new ArrayList<MatOfPoint2f>();
+            List<MatOfPoint2f> polyMOP2fBlue    = new ArrayList<MatOfPoint2f>();
+            List<MatOfPoint> polyMOPBlue        = new ArrayList<MatOfPoint>();
+
+            float[] radiusBlue     = new float[contoursBlue.size()];
+
+            for (int i = 0; i < contoursBlue.size(); i++) {
+                muBlue.add(i, Imgproc.moments(contoursBlue.get(i), false));
+                Moments p = muBlue.get(i);
+                int x = (int) (p.get_m10() / p.get_m00());
+                int y = (int) (p.get_m01() / p.get_m00());
+                Imgproc.circle(mRgba, new Point(x, y), 16, CONTOUR_COLOR_BLUE, 16);
+
+                contours2fBlue.add(new MatOfPoint2f());
+                polyMOP2fBlue.add(new MatOfPoint2f());
+                polyMOPBlue.add(new MatOfPoint());
+
+                contoursBlue.get(i).convertTo(contours2fBlue.get(i), CvType.CV_32FC2);
+                Imgproc.approxPolyDP(contours2fBlue.get(i), polyMOP2fBlue.get(i), 3, true);
+                polyMOP2fBlue.get(i).convertTo(polyMOPBlue.get(i), CvType.CV_32S);
+
+                minEnclosingCircle(polyMOP2fBlue.get(i),centerBlue,radiusBlue);
+                Imgproc.circle(mRgba, new Point(x, y), 16, CONTOUR_COLOR_BLUE, 16);
+                Imgproc.circle(mRgba, centerBlue, (int)radiusBlue[i], CONTOUR_COLOR_BLUE, 16);
+                Log.e(TAG, "Blue Center: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ") with radius: " + (int)radiusBlue[i]);
+            }
+
+
             Mat colorLabel = mRgba.submat(4, 68, 4, 68);
             colorLabel.setTo(mBlobColorRgba);
 
-            Mat spectrumLabelRed = mRgba.submat(4, 4 + mSpectrumRed.rows(), 70, 70 + mSpectrumRed.cols());
-            mSpectrumRed.copyTo(spectrumLabelRed);
+            //Mat spectrumLabelRed = mRgba.submat(4, 4 + mSpectrumRed.rows(), 70, 70 + mSpectrumRed.cols());
+            //mSpectrumRed.copyTo(spectrumLabelRed);
 
-            Mat spectrumLabelBlue = mRgba.submat(4, 4 + mSpectrumBlue.rows(), 70, 70 + mSpectrumBlue.cols());
-            mSpectrumRed.copyTo(spectrumLabelBlue);
+            //Mat spectrumLabelBlue = mRgba.submat(4, 4 + mSpectrumBlue.rows(), 70, 70 + mSpectrumBlue.cols());
+            //mSpectrumBlue.copyTo(spectrumLabelBlue);
+
+            if (centerBlue.x < centerRed.x) {
+                Log.e(TAG, "Blue Left: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ") Red Right: (" + (int)centerRed.x + "," + (int)centerRed.y + ")");
+            } else {
+                Log.e(TAG, "Red Left: (" + (int)centerRed.x + "," + (int)centerRed.y + ") Blue Right: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ")");
+            }
 
         }
 

@@ -209,11 +209,11 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             mDetectorBlue.process(mRgba);
 
             List<MatOfPoint> contoursRed = mDetectorRed.getContours();
-            Log.e(TAG, "Contours count: " + contoursRed.size());
+            Log.e(TAG, "Red Contours count: " + contoursRed.size());
             //Imgproc.drawContours(mRgba, contoursRed, -1, CONTOUR_COLOR_RED);
 
             List<MatOfPoint> contoursBlue = mDetectorBlue.getContours();
-            Log.e(TAG, "Contours count: " + contoursBlue.size());
+            Log.e(TAG, "Blue Contours count: " + contoursBlue.size());
             //Imgproc.drawContours(mRgba, contoursBlue, -1, CONTOUR_COLOR_BLUE);
 
             List<Moments> muRed = new ArrayList<Moments>(contoursRed.size());
@@ -287,11 +287,15 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             //Mat spectrumLabelBlue = mRgba.submat(4, 4 + mSpectrumBlue.rows(), 70, 70 + mSpectrumBlue.cols());
             //mSpectrumBlue.copyTo(spectrumLabelBlue);
 
+            String message = "";
             if (centerBlue.x < centerRed.x) {
-                Log.e(TAG, "Blue Left: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ") Red Right: (" + (int)centerRed.x + "," + (int)centerRed.y + ")");
+
+                message = "Blue Left: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ") Red Right: (" + (int)centerRed.x + "," + (int)centerRed.y + ")";
             } else {
-                Log.e(TAG, "Red Left: (" + (int)centerRed.x + "," + (int)centerRed.y + ") Blue Right: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ")");
+                message = "Red Left: (" + (int)centerRed.x + "," + (int)centerRed.y + ") Blue Right: (" + (int)centerBlue.x + "," + (int)centerBlue.y + ")";
             }
+
+            Log.e(TAG,message);
 
         }
 

@@ -224,6 +224,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         Imgproc.cvtColor(gray, gray, Imgproc.COLOR_RGBA2GRAY);
         Imgproc.Canny(gray, gray, 70, 110);
 
+
         Imgproc.cvtColor(gray, mRgba, Imgproc.COLOR_GRAY2RGBA);
 
         HoughLines(gray, lines, 5, 4, 7);

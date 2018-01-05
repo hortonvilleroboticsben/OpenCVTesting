@@ -222,37 +222,52 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         Mat lines = new Mat();
         Imgproc.cvtColor(gray, gray, Imgproc.COLOR_RGBA2GRAY);
-        Imgproc.Canny(gray, gray, 70, 110);
+        Imgproc.Canny(gray, gray, 2, 50);
 
+        Imgproc.cvtColor(mRgba,mRgba,Imgproc.COLOR_RGBA2GRAY);
+        Imgproc.cvtColor(mRgba,mRgba,Imgproc.COLOR_GRAY2RGBA);
 
-        Imgproc.cvtColor(gray, mRgba, Imgproc.COLOR_GRAY2RGBA);
-
-        HoughLines(gray, lines, 5, 4, 7);
+        HoughLinesP(gray, lines, 5, Math.PI/180, 7,40, 10);
         try {
-            for (int i = 0; i < lines.cols(); i++) {
-                double[] val = lines.get(0, i);
-                double rho = val[0], theta = val[1];
-                double cosTheta = Math.cos(theta);
-                double sinTheta = Math.sin(theta);
-                double x = cosTheta * rho;
-                double y = sinTheta * rho;
-                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
-                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
-
-                Log.println(Log.ASSERT, "TAG", theta + "");
+            for (int i = 0; i < lines.rows(); i++) {
+                double[] val = lines.get(i,0);
+//                double rho = val[0], theta = val[1];
+//                double cosTheta = Math.cos(theta);
+//                double sinTheta = Math.sin(theta);
+//                double x = cosTheta * rho;
+//                double y = sinTheta * rho;
+//                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
+//                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
 
 
-                Imgproc.line(mRgba,
+                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+
+                Log.println(Log.ASSERT, "TAG", angle+"");
+
+                if(isWithin(angle, 170, 180) || isWithin(angle, -180, -170))Imgproc.line(mRgba,
+                                                                                                    new Point(val[0], val[1]),
+                                                                                                    new Point(val[2], val[3]),
+                                                                                                    new Scalar(255, 0, 0),
+                                                                                                    10);
+                else if(isWithin(angle, 80, 90) || isWithin(angle, -90, -80))Imgproc.line(mRgba,
+                                                                                                    new Point(val[0], val[1]),
+                                                                                                    new Point(val[2], val[3]),
+                                                                                                    new Scalar(0, 0, 255),
+                                                                                                    10);
+                else Imgproc.line(mRgba,
                         new Point(val[0], val[1]),
                         new Point(val[2], val[3]),
-                        new Scalar(255, 0, 0),
-                        30);
-
+                        new Scalar(0, 255, 0),
+                       10);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return mRgba;
+    }
+
+    public boolean isWithin(double val, double low, double high){
+        return val >= low && val <= high;
     }
 
 //    mROI = new Mat(mRgba,rROI);

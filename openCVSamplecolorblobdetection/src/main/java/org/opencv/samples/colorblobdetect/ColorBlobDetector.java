@@ -6,14 +6,18 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import static android.content.ContentValues.TAG;
+import static org.opencv.imgproc.Imgproc.HoughLinesP;
 
 public class ColorBlobDetector {
     // Lower and Upper bounds for range checking in HSV color space
@@ -36,6 +40,7 @@ public class ColorBlobDetector {
     Mat mMask = new Mat();
     Mat mDilatedMask = new Mat();
     Mat mHierarchy = new Mat();
+    Mat lines = new Mat();
 
     public void setColorRadius(Scalar radius) {
         mColorRadius = radius;
@@ -92,6 +97,84 @@ public class ColorBlobDetector {
 
     public void setMinContourArea(double area) {
         mMinContourArea = area;
+    }
+
+    public void processLines(Mat mRgba, CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        mRgba = inputFrame.rgba();
+        Imgproc.cvtColor(mRgba,mHsvMat,Imgproc.COLOR_RGB2HSV_FULL);
+
+        if (mUpperBound.val[0] < mLowerBound.val[0]) {
+
+            Mat mMask1 = new Mat();
+            Mat mMask2 = new Mat();
+
+
+            Scalar tLowerBound = mLowerBound.clone();
+            Scalar tUpperBound = mUpperBound.clone();
+
+            tLowerBound.val[0] = 0.0;
+            tUpperBound.val[0] = mUpperBound.val[0];
+
+            Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask1);
+
+            tLowerBound = mLowerBound.clone();
+            tUpperBound.val[0] = 255.0;
+
+            Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask2);
+
+            Core.add(mMask1,mMask2,mMask);
+
+        } else {
+            Core.inRange(mHsvMat, mLowerBound, mUpperBound, mMask);
+        }
+
+        Imgproc.Canny(mMask, mMask, 50, 100);
+
+        HoughLinesP(mMask, lines, 5, Math.PI/180, 7,60, 15);
+
+    }
+
+    public void showLines(Mat mRgba){
+        try {
+            for (int i = 0; i < lines.rows(); i++) {
+                double[] val = lines.get(i,0);
+//                double rho = val[0], theta = val[1];
+//                double cosTheta = Math.cos(theta);
+//                double sinTheta = Math.sin(theta);
+//                double x = cosTheta * rho;
+//                double y = sinTheta * rho;
+//                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
+//                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
+
+
+                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+
+                Log.println(Log.ASSERT, "TAG", angle+"");
+
+                if(isWithin(angle, 170, 180) || isWithin(angle, -180, -170))Imgproc.line(mRgba,
+                        new Point(val[0], val[1]),
+                        new Point(val[2], val[3]),
+                        new Scalar(255, 0, 0),
+                        10);
+                else if(isWithin(angle, 80, 90) || isWithin(angle, -90, -80))Imgproc.line(mRgba,
+                        new Point(val[0], val[1]),
+                        new Point(val[2], val[3]),
+                        new Scalar(0, 0, 255),
+                        10);
+                else Imgproc.line(mRgba,
+                            new Point(val[0], val[1]),
+                            new Point(val[2], val[3]),
+                            new Scalar(0, 255, 0),
+                            10);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public boolean isWithin(double val, double low, double high){
+        return val >= low && val <= high;
     }
 
     public void process(Mat rgbaImage) {

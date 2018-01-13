@@ -229,6 +229,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         return mRgba;
     }
 
+    //here ya go ben
+
     public boolean isWithin(double val, double low, double high){
         return val >= low && val <= high;
     }

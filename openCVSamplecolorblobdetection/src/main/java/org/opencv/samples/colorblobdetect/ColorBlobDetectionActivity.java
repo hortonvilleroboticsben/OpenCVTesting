@@ -54,6 +54,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     private ColorBlobDetector mDetectorRed;
     private ColorBlobDetector mDetectorBlue;
+    private ColorBlobDetector mDetectorWhite;
 
     private Mat mSpectrumRed;
     private Mat mSpectrumBlue;
@@ -61,6 +62,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     private Scalar CONTOUR_COLOR_RED;
     private Scalar CONTOUR_COLOR_BLUE;
+
+    private Scalar LINE_COLOR_RED;
+    private Scalar LINE_COLOR_BLUE;
 
     private Scalar ROI_COLOR;
 
@@ -142,6 +146,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         mDetectorRed = new ColorBlobDetector();
         mDetectorBlue = new ColorBlobDetector();
+        mDetectorWhite = new ColorBlobDetector();
 
         mSpectrumRed = new Mat();
         mSpectrumBlue = new Mat();
@@ -153,10 +158,14 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         CONTOUR_COLOR_RED = new Scalar(255, 0, 0, 255);
         CONTOUR_COLOR_BLUE = new Scalar(0, 0, 255, 255);
 
+        LINE_COLOR_BLUE = new Scalar(0,0,200,200);
+
+
         ROI_COLOR = new Scalar(255, 255, 255, 255);
 
-        mDetectorRed.setColorRange(new Scalar(237, 120, 130, 0), new Scalar(20, 255, 255, 255));
+        mDetectorRed.setColorRange(new Scalar(237, 120, 0, 0), new Scalar(20, 255, 255, 255));
         mDetectorBlue.setColorRange(new Scalar(125, 120, 130, 0), new Scalar(187, 255, 255, 255));
+        mDetectorWhite.setColorRange(new Scalar(0,15,100,0), new Scalar(255,255,255,255));
     }
 
     public void onCameraViewStopped() {
@@ -219,10 +228,15 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         mRgba = inputFrame.rgba();
         try{
-            mDetectorRed.processLines(mRgba,inputFrame);
-            mDetectorBlue.processLines(mRgba,inputFrame);
-            mDetectorRed.showLines(mRgba);
-            mDetectorBlue.showLines(mRgba);
+
+            mDetectorBlue.processPolys(mRgba,inputFrame);
+            mDetectorBlue.showPolys(mRgba);
+//            mDetectorRed.processLines(mRgba,inputFrame);
+//            mDetectorBlue.processLines(mRgba,inputFrame);
+//            mDetectorWhite.processLines(mRgba,inputFrame);
+//            mDetectorRed.showVerticalLines(mRgba);
+//            mDetectorBlue.showVerticalLines(mRgba);
+//            mDetectorWhite.showHorizontalLines(mRgba);
         } catch (Exception e) {
             e.printStackTrace();
         }

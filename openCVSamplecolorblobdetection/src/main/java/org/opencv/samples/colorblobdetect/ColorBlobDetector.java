@@ -1,5 +1,6 @@
 package org.opencv.samples.colorblobdetect;
 
+import android.provider.ContactsContract;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -11,13 +12,15 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import static android.content.ContentValues.TAG;
 import static org.opencv.imgproc.Imgproc.HoughLinesP;
+import static org.opencv.imgproc.Imgproc.initUndistortRectifyMap;
 
 public class ColorBlobDetector {
     // Lower and Upper bounds for range checking in HSV color space
@@ -32,6 +35,7 @@ public class ColorBlobDetector {
 
     private Mat mSpectrum = new Mat();
     private List<MatOfPoint> mContours = new ArrayList<MatOfPoint>();
+    private List<MatOfPoint> mPolys = new ArrayList<MatOfPoint>();
 
 
     // Cache
@@ -40,7 +44,8 @@ public class ColorBlobDetector {
     Mat mMask = new Mat();
     Mat mDilatedMask = new Mat();
     Mat mHierarchy = new Mat();
-    Mat lines = new Mat();
+    Mat mLines = new Mat();
+
 
     public void setColorRadius(Scalar radius) {
         mColorRadius = radius;
@@ -49,6 +54,23 @@ public class ColorBlobDetector {
     public void setColorRange(Scalar minHSV, Scalar maxHSV) {
         mLowerBound = minHSV;
         mUpperBound = maxHSV;
+    }
+
+    public void checkContours(List<MatOfPoint> contours) {
+
+        mPolys.clear();
+        for (MatOfPoint c : contours){
+            MatOfPoint2f thisContour2f = new MatOfPoint2f();
+            MatOfPoint approxContour = new MatOfPoint();
+            MatOfPoint2f approxContour2f = new MatOfPoint2f();
+
+            c.convertTo(thisContour2f, CvType.CV_32FC2);
+
+            Imgproc.approxPolyDP(thisContour2f, approxContour2f, 2, true);
+
+            approxContour2f.convertTo(approxContour, CvType.CV_32S);
+            if(Imgproc.contourArea(approxContour) > 50) mPolys.add(approxContour);
+        }
     }
 
     public void setHsvColor(Scalar hsvColor) {
@@ -99,9 +121,64 @@ public class ColorBlobDetector {
         mMinContourArea = area;
     }
 
+    public void processPolys(Mat mRgba,CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        try {
+            mRgba = inputFrame.rgba();
+            Imgproc.cvtColor(mRgba, mHsvMat, Imgproc.COLOR_RGB2HSV_FULL);
+            //Imgproc.pyrDown(mHsvMat,mHsvMat);
+
+            if (mUpperBound.val[0] < mLowerBound.val[0]) {
+
+                Mat mMask1 = new Mat();
+                Mat mMask2 = new Mat();
+
+
+                Scalar tLowerBound = mLowerBound.clone();
+                Scalar tUpperBound = mUpperBound.clone();
+
+                tLowerBound.val[0] = 0.0;
+                tUpperBound.val[0] = mUpperBound.val[0];
+
+                Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask1);
+
+                tLowerBound = mLowerBound.clone();
+                tUpperBound.val[0] = 255.0;
+
+                Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask2);
+
+                Core.add(mMask1, mMask2, mMask);
+
+            } else {
+                Core.inRange(mHsvMat, mLowerBound, mUpperBound, mMask);
+            }
+            List<MatOfPoint> polys = new ArrayList<MatOfPoint>();
+
+            List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+
+            Imgproc.findContours(mMask, contours, mHierarchy , Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            checkContours(contours);
+
+        }catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void showPolys(Mat mRgba){
+        try {
+
+           for(int i = 0; i < mPolys.size();i++) {
+               Imgproc.drawContours(mRgba,mPolys,i,new Scalar(255,255,255),-1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void processLines(Mat mRgba, CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
         Imgproc.cvtColor(mRgba,mHsvMat,Imgproc.COLOR_RGB2HSV_FULL);
+        //Imgproc.pyrDown(mHsvMat,mHsvMat);
 
         if (mUpperBound.val[0] < mLowerBound.val[0]) {
 
@@ -130,14 +207,14 @@ public class ColorBlobDetector {
 
         Imgproc.Canny(mMask, mMask, 50, 100);
 
-        HoughLinesP(mMask, lines, 5, Math.PI/180, 7,60, 15);
+        HoughLinesP(mMask, mLines, 5, Math.PI/180, 7,60, 40);
 
     }
 
     public void showLines(Mat mRgba){
         try {
-            for (int i = 0; i < lines.rows(); i++) {
-                double[] val = lines.get(i,0);
+            for (int i = 0; i < mLines.rows(); i++) {
+                double[] val = mLines.get(i,0);
 //                double rho = val[0], theta = val[1];
 //                double cosTheta = Math.cos(theta);
 //                double sinTheta = Math.sin(theta);
@@ -166,6 +243,63 @@ public class ColorBlobDetector {
                             new Point(val[2], val[3]),
                             new Scalar(0, 255, 0),
                             10);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void showHorizontalLines(Mat mRgba){
+        try {
+            Imgproc.pyrUp(mLines,mLines);
+            for (int i = 0; i < mLines.rows(); i++) {
+                double[] val = mLines.get(i,0);
+//                double rho = val[0], theta = val[1];
+//                double cosTheta = Math.cos(theta);
+//                double sinTheta = Math.sin(theta);
+//                double x = cosTheta * rho;
+//                double y = sinTheta * rho;
+//                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
+//                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
+
+
+                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+
+                Log.println(Log.ASSERT, "TAG", angle+"");
+
+                if(isWithin(angle, 160, 180) || isWithin(angle, -180, -160) || isWithin(angle, -20,20))Imgproc.line(mRgba,
+                        new Point(val[0], val[1]),
+                        new Point(val[2], val[3]),
+                        new Scalar(200, 128, 0),
+                        10);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void showVerticalLines(Mat mRgba){
+        try {
+            for (int i = 0; i < mLines.rows(); i++) {
+                double[] val = mLines.get(i,0);
+//                double rho = val[0], theta = val[1];
+//                double cosTheta = Math.cos(theta);
+//                double sinTheta = Math.sin(theta);
+//                double x = cosTheta * rho;
+//                double y = sinTheta * rho;
+//                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
+//                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
+
+
+                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+
+                Log.println(Log.ASSERT, "TAG", angle+"");
+
+                if(isWithin(angle, 80, 100) || isWithin(angle, -100, -80))Imgproc.line(mRgba,
+                        new Point(val[0], val[1]),
+                        new Point(val[2], val[3]),
+                        new Scalar(0, 255, 0),
+                        10);
             }
         } catch (Exception e) {
             e.printStackTrace();

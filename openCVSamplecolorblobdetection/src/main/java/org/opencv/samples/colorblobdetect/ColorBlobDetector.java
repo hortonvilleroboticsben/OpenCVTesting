@@ -16,6 +16,7 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import static android.content.ContentValues.TAG;
@@ -45,6 +46,7 @@ public class ColorBlobDetector {
     Mat mDilatedMask = new Mat();
     Mat mHierarchy = new Mat();
     Mat mLines = new Mat();
+    //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
 
 
     public void setColorRadius(Scalar radius) {
@@ -168,16 +170,19 @@ public class ColorBlobDetector {
         try {
 
            for(int i = 0; i < mPolys.size();i++) {
-               Imgproc.drawContours(mRgba,mPolys,i,new Scalar(255,255,255),-1);
+               Imgproc.drawContours(mRgba,mPolys,i,new Scalar(255,255,255),5);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    final int PYR = 1;
+
     public void processLines(Mat mRgba, CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
         Imgproc.cvtColor(mRgba,mHsvMat,Imgproc.COLOR_RGB2HSV_FULL);
+        //Imgproc.pyrDown(mHsvMat,mHsvMat);
         //Imgproc.pyrDown(mHsvMat,mHsvMat);
 
         if (mUpperBound.val[0] < mLowerBound.val[0]) {
@@ -207,12 +212,17 @@ public class ColorBlobDetector {
 
         Imgproc.Canny(mMask, mMask, 50, 100);
 
-        HoughLinesP(mMask, mLines, 5, Math.PI/180, 7,60, 40);
+        HoughLinesP(mMask, mLines, 5, Math.PI/180, 7,60/PYR, 20/PYR);
+
+        //Imgproc.morphologyEx(mMask,mMask,Imgproc.MORPH_CLOSE,mRectangle);
 
     }
 
     public void showLines(Mat mRgba){
+        
         try {
+            double val0,val1,val2,val3;
+            int lineCount = 0;
             for (int i = 0; i < mLines.rows(); i++) {
                 double[] val = mLines.get(i,0);
 //                double rho = val[0], theta = val[1];
@@ -223,27 +233,32 @@ public class ColorBlobDetector {
 //                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
 //                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
 
+                val0 = val[0] * PYR;
+                val1 = val[1] * PYR;
+                val2 = val[2] * PYR;
+                val3 = val[3] * PYR;
+                
+                
+                double angle = ((Math.atan2(val1-val3,val0-val2)*180/Math.PI) + 180)%180;
 
-                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+                Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
 
-                Log.println(Log.ASSERT, "TAG", angle+"");
-
-                if(isWithin(angle, 170, 180) || isWithin(angle, -180, -170))Imgproc.line(mRgba,
-                        new Point(val[0], val[1]),
-                        new Point(val[2], val[3]),
-                        new Scalar(255, 0, 0),
-                        10);
-                else if(isWithin(angle, 80, 90) || isWithin(angle, -90, -80))Imgproc.line(mRgba,
-                        new Point(val[0], val[1]),
-                        new Point(val[2], val[3]),
-                        new Scalar(0, 0, 255),
-                        10);
-                else Imgproc.line(mRgba,
-                            new Point(val[0], val[1]),
-                            new Point(val[2], val[3]),
+                if(isWithin(angle,30,150) && !isWithin(angle,80,100)) {
+                    Imgproc.line(mRgba,
+                            new Point(val0, val1),
+                            new Point(val2, val3),
                             new Scalar(0, 255, 0),
                             10);
+
+                    lineCount ++;
+                }
+//                else Imgproc.line(mRgba,
+//                            new Point(val0, val1),
+//                            new Point(val2, val3),
+//                            new Scalar(255, 0, 0),
+//                            10);
             }
+            Log.println(Log.ASSERT, "TAG", lineCount+"");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -369,6 +384,24 @@ public class ColorBlobDetector {
             }
         }
     }
+
+    class Line {
+        Point p1, p2;
+        double angle;
+        public Line(Point p1,Point p2, double angle) {
+            this.p1 = p1;
+            this.p2 = p2;
+            this.angle = angle;
+        }
+    }
+    class LineCluster {
+        List<Line> cluster = new ArrayList<>();
+        double angle = 0;
+        Point upperPoint = new Point();
+        Point lowerPoint = new Point();
+    }
+
+    public List<LineCluster> filteredLines = new ArrayList<>();
 
     public List<MatOfPoint> getContours() {
         return mContours;

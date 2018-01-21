@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-export OPENCV_ANDROID_SDK=C:\Users\Hortonville\Downloads\opencv-3.3.0-android-sdk\OpenCV-android-sdk
+export OPENCV_ANDROID_SDK=C:\Users\kungl\Downloads\opencv-3.3.0-android-sdk\OpenCV-android-sdk
 
 OPENCV_INSTALL_MODULES:=on
 #OPENCV_CAMERA_MODULES:=on

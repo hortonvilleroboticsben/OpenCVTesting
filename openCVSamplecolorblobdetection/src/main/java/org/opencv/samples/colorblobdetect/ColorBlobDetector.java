@@ -4,6 +4,7 @@ import android.provider.ContactsContract;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -46,6 +47,9 @@ public class ColorBlobDetector {
     Mat mDilatedMask = new Mat();
     Mat mHierarchy = new Mat();
     Mat mLines = new Mat();
+
+    ArrayList<Double> Xs = new ArrayList<>();
+    ArrayList<Double> Ys = new ArrayList<>();
     //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
 
 
@@ -223,6 +227,9 @@ public class ColorBlobDetector {
         try {
             double val0,val1,val2,val3;
             int lineCount = 0;
+            int totalAngle  = 0;
+            int totalX = 0;
+            int totalY = 0;
             for (int i = 0; i < mLines.rows(); i++) {
                 double[] val = mLines.get(i,0);
 //                double rho = val[0], theta = val[1];
@@ -237,9 +244,13 @@ public class ColorBlobDetector {
                 val1 = val[1] * PYR;
                 val2 = val[2] * PYR;
                 val3 = val[3] * PYR;
-                
+
+                totalX+=val0+val2;
+                totalY+=val1+val3;
                 
                 double angle = ((Math.atan2(val1-val3,val0-val2)*180/Math.PI) + 180)%180;
+
+                totalAngle+=angle;
 
                 Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
 
@@ -259,9 +270,23 @@ public class ColorBlobDetector {
 //                            10);
             }
             Log.println(Log.ASSERT, "TAG", lineCount+"");
+            Log.println(Log.ASSERT, "TAG", totalAngle/mLines.rows()+"");
+            Log.println(Log.ASSERT, "TAG", totalX/mLines.rows()+"");
+            Log.println(Log.ASSERT, "TAG", totalY/mLines.rows()+"");
+
+            Imgproc.circle(mRgba, new Point(
+                            (totalX = totalX/(2*mLines.rows())),
+                    (totalY = totalY/(2*mLines.rows()))),
+                    2, new Scalar(255, 0, 0), 5);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    public static double median(double[] median){
+        Arrays.sort(median);
+        if(median.length%2 == 0)
+            return (median[median.length/2] + median[median.length/2 - 1])/2;
+        else return median[median.length/2];
     }
 
     public void showHorizontalLines(Mat mRgba){

@@ -236,6 +236,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 //            mDetectorWhite.processLines(mRgba,inputFrame);
 //            mDetectorRed.showVerticalLines(mRgba);
             mDetectorBlue.showLines(mRgba);
+            Imgproc.circle(mRgba, new Point(mRgba.cols()/2, mRgba.rows()/2), 20, new Scalar(0,255,0), 4);
 //            mDetectorWhite.showHorizontalLines(mRgba);
         } catch (Exception e) {
             e.printStackTrace();

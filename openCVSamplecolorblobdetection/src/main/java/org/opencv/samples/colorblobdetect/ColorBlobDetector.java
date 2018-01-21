@@ -5,6 +5,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -49,8 +50,8 @@ public class ColorBlobDetector {
     Mat mHierarchy = new Mat();
     Mat mLines = new Mat();
 
-    ArrayList<Double> Xs = new ArrayList<>();
-    ArrayList<Double> Ys = new ArrayList<>();
+    ArrayList<Integer> Xs = new ArrayList<>();
+    ArrayList<Integer> Ys = new ArrayList<>();
     //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
 
 
@@ -253,7 +254,7 @@ public class ColorBlobDetector {
 
                 totalAngle+=angle;
 
-                Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
+                Log.println(Log.ASSERT, "TAG", angle+" degrees loop:" + i);
 
                 if(isWithin(angle,30,150) && !isWithin(angle,80,100)) {
                     Imgproc.line(mRgba,
@@ -274,20 +275,32 @@ public class ColorBlobDetector {
             Log.println(Log.ASSERT, "TAG", totalAngle/mLines.rows()+"");
             Log.println(Log.ASSERT, "TAG", totalX/mLines.rows()+"");
             Log.println(Log.ASSERT, "TAG", totalY/mLines.rows()+"");
+            Log.println(Log.ASSERT, "SPEED", Core.getTickFrequency()+"");
 
-            Imgproc.circle(mRgba, new Point(
-                            (totalX = totalX/(2*mLines.rows())),
-                    (totalY = totalY/(2*mLines.rows()))),
-                    2, new Scalar(255, 0, 0), 5);
+            totalX = totalX/(2*mLines.rows());
+            totalY = totalY/(2*mLines.rows());
+
+            if(!(Xs.size() < 30) || !(Ys.size() < 30)) {
+                Xs.remove(0);
+                Ys.remove(0);
+            }
+
+            Xs.add(totalX);
+            Ys.add(totalY);
+
+            Imgproc.circle(mRgba, new Point(median(Xs), median(Ys)),2, new Scalar(255, 0, 0), 5);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public static double median(double[] median){
-        Arrays.sort(median);
-        if(median.length%2 == 0)
-            return (median[median.length/2] + median[median.length/2 - 1])/2;
-        else return median[median.length/2];
+
+    public static double median(ArrayList<Integer> median){
+        ArrayList<Integer> m = new ArrayList<>();
+        for(int i : median) m.add(i);
+        Collections.sort(m);
+        if(median.size()%2 == 0)
+            return (m.get(m.size()/2) + m.get(m.size()/2 - 1))/2;
+        else return m.get(m.size()/2);
     }
 
     public void showHorizontalLines(Mat mRgba){

@@ -405,6 +405,7 @@ public class ColorBlobDetector {
         }
     }
 
+
     class Line {
         Point p1, p2;
         double angle;
@@ -414,7 +415,14 @@ public class ColorBlobDetector {
             this.angle = angle;
         }
     }
+
     class LineCluster {
+
+        RotatedRect rRect = new RotatedRect();
+        List<Line> lines = new ArrayList<>();
+        List<Point> points = new ArrayList<>();
+        double angle = 0;
+
         public LineCluster(Line line) {
             addLine(line);
         }
@@ -423,8 +431,13 @@ public class ColorBlobDetector {
             points.add(line.p1);
             points.add(line.p2);
             avgAngle();
+            updateRect();
         }
-
+        private void updateRect() {
+            MatOfPoint2f mp2f = new MatOfPoint2f();
+            mp2f.fromList(points);
+            rRect = minAreaRect(mp2f);
+        }
         public boolean isClose(Point p, double tolerance) {
             for(int i = 0; i < points.size(); i++) {
                 if(Math.hypot(p.x-points.get(i).x,p.y-points.get(i).y) <= tolerance) {
@@ -433,10 +446,7 @@ public class ColorBlobDetector {
             }
             return false;
         }
-
-        List<Line> lines = new ArrayList<>();
-        List<Point> points = new ArrayList<Point>();
-        double angle = 0;
+        public Point center() {return rRect.center;}
         public void avgAngle() {
             int n = 0;
             for(int i = 0; i < lines.size(); i++) {
@@ -449,6 +459,7 @@ public class ColorBlobDetector {
             return "Angle is " + angle + "Lines are " + lines.size();
         }
     }
+
     class LineClusters {
         List<LineCluster> clusters = new ArrayList<>();
 
@@ -468,7 +479,6 @@ public class ColorBlobDetector {
             }
             if(!foundCluster) {
                 clusters.add(new LineCluster(line));
-
             }
         }
 
@@ -480,6 +490,7 @@ public class ColorBlobDetector {
             return returnVal;
         }
     }
+
 
     public List<MatOfPoint> getContours() {
         return mContours;

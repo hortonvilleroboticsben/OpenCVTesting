@@ -41,6 +41,7 @@ public class ColorBlobDetector {
 
 
     // Cache
+
     Mat mPyrDownMat = new Mat();
     Mat mHsvMat = new Mat();
     Mat mMask = new Mat();

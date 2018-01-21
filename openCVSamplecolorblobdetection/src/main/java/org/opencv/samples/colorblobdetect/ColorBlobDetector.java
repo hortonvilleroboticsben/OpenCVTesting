@@ -128,7 +128,7 @@ public class ColorBlobDetector {
             Core.inRange(mHsvMat, mLowerBound, mUpperBound, mMask);
         }
 
-        Imgproc.Canny(mMask, mMask, 50, 100);
+        Imgproc.Canny(mMask, mMask, 50, 70);
 
         HoughLinesP(mMask, lines, 5, Math.PI/180, 7,60, 15);
 

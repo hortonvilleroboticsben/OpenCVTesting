@@ -4,6 +4,7 @@ import android.provider.ContactsContract;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -15,6 +16,7 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
@@ -22,6 +24,7 @@ import org.opencv.imgproc.Imgproc;
 import static android.content.ContentValues.TAG;
 import static org.opencv.imgproc.Imgproc.HoughLinesP;
 import static org.opencv.imgproc.Imgproc.initUndistortRectifyMap;
+import static org.opencv.imgproc.Imgproc.minAreaRect;
 
 public class ColorBlobDetector {
     // Lower and Upper bounds for range checking in HSV color space
@@ -222,7 +225,7 @@ public class ColorBlobDetector {
         
         try {
             double val0,val1,val2,val3;
-            int lineCount = 0;
+            LineClusters clusters = new LineClusters();
             for (int i = 0; i < mLines.rows(); i++) {
                 double[] val = mLines.get(i,0);
 //                double rho = val[0], theta = val[1];
@@ -241,16 +244,16 @@ public class ColorBlobDetector {
                 
                 double angle = ((Math.atan2(val1-val3,val0-val2)*180/Math.PI) + 180)%180;
 
-                Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
+                //Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
 
                 if(isWithin(angle,30,150) && !isWithin(angle,80,100)) {
                     Imgproc.line(mRgba,
                             new Point(val0, val1),
                             new Point(val2, val3),
-                            new Scalar(0, 255, 0),
+                            new Scalar(255, 255, 255),
                             10);
-
-                    lineCount ++;
+                    clusters.add(new Line(new Point(val0,val1),new Point(val2,val3),angle));
+                    Log.println(Log.ASSERT,"TAG",angle + " is the angle of line " + i);
                 }
 //                else Imgproc.line(mRgba,
 //                            new Point(val0, val1),
@@ -258,7 +261,24 @@ public class ColorBlobDetector {
 //                            new Scalar(255, 0, 0),
 //                            10);
             }
-            Log.println(Log.ASSERT, "TAG", lineCount+"");
+            Log.println(Log.ASSERT, "TAG", clusters.toString()+"\n");
+            for(int i = 0; i < clusters.clusters.size(); i ++) {
+               if(clusters.clusters.get(i).lines.size() > 2) {
+                   Point[] rectPoints = new Point[4];
+                   MatOfPoint2f mp2f = new MatOfPoint2f();
+                   mp2f.fromList(clusters.clusters.get(i).points);
+                   RotatedRect rRect = minAreaRect(mp2f);
+                   rRect.points(rectPoints);
+                   MatOfPoint mPoints = new MatOfPoint(rectPoints);
+                   List<MatOfPoint> lPoints = new ArrayList<>();
+                   lPoints.add(mPoints);
+                   Log.println(Log.ASSERT, "TAG", Arrays.toString(rectPoints) + "Points");
+
+                   Imgproc.polylines(mRgba, lPoints, true, new Scalar(0, 255, 0), 10);
+               }
+
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -395,13 +415,71 @@ public class ColorBlobDetector {
         }
     }
     class LineCluster {
-        List<Line> cluster = new ArrayList<>();
-        double angle = 0;
-        Point upperPoint = new Point();
-        Point lowerPoint = new Point();
-    }
+        public LineCluster(Line line) {
+            addLine(line);
+        }
+        public void addLine(Line line) {
+            lines.add(line);
+            points.add(line.p1);
+            points.add(line.p2);
+            avgAngle();
+        }
 
-    public List<LineCluster> filteredLines = new ArrayList<>();
+        public boolean isClose(Point p, double tolerance) {
+            for(int i = 0; i < points.size(); i++) {
+                if(Math.hypot(p.x-points.get(i).x,p.y-points.get(i).y) <= tolerance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        List<Line> lines = new ArrayList<>();
+        List<Point> points = new ArrayList<Point>();
+        double angle = 0;
+        public void avgAngle() {
+            int n = 0;
+            for(int i = 0; i < lines.size(); i++) {
+                n += lines.get(i).angle;
+            }
+            angle = n / lines.size();
+        }
+        public String toString() {
+            avgAngle();
+            return "Angle is " + angle + "Lines are " + lines.size();
+        }
+    }
+    class LineClusters {
+        List<LineCluster> clusters = new ArrayList<>();
+
+        public void add(Line line){
+            boolean foundCluster = false;
+            outerloop:
+            for(int i = 0; i < clusters.size(); i ++) {
+                for(int j = 0; j < clusters.get(i).lines.size(); j++) {
+                    if(isWithin(line.angle ,clusters.get(i).angle - 7, clusters.get(i).angle + 7)) {
+                        if(clusters.get(i).isClose(line.p1,80) ||clusters.get(i).isClose(line.p2,80)) {
+                            clusters.get(i).addLine(line);
+                            foundCluster = true;
+                            break outerloop;
+                        }
+                    }
+                }
+            }
+            if(!foundCluster) {
+                clusters.add(new LineCluster(line));
+
+            }
+        }
+
+        public String toString() {
+            String returnVal = "";
+            for(int i = 0; i < clusters.size();i++) {
+                returnVal += "cluster " + i + " " +clusters.get(i).toString() + "\n";
+            }
+            return returnVal;
+        }
+    }
 
     public List<MatOfPoint> getContours() {
         return mContours;

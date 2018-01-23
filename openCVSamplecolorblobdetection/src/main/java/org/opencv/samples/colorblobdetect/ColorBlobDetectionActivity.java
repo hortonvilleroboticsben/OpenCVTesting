@@ -68,6 +68,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     private Scalar ROI_COLOR;
 
+    String RB = "R";
+
     private CameraBridgeViewBase mOpenCvCameraView;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
@@ -146,7 +148,6 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         mDetectorRed = new ColorBlobDetector();
         mDetectorBlue = new ColorBlobDetector();
-        mDetectorWhite = new ColorBlobDetector();
 
         mSpectrumRed = new Mat();
         mSpectrumBlue = new Mat();
@@ -163,9 +164,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         ROI_COLOR = new Scalar(255, 255, 255, 255);
 
-        mDetectorRed.setColorRange(new Scalar(237, 120, 0, 0), new Scalar(20, 255, 255, 255));
+        mDetectorRed.setColorRange(new Scalar(217, 150, 150, 0), new Scalar(45, 255, 255, 255));
         mDetectorBlue.setColorRange(new Scalar(125, 120, 130, 0), new Scalar(187, 255, 255, 255));
-        mDetectorWhite.setColorRange(new Scalar(0,15,100,0), new Scalar(255,255,255,255));
     }
 
     public void onCameraViewStopped() {
@@ -173,53 +173,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     }
 
     public boolean onTouch(View v, MotionEvent event) {
-        int cols = mRgba.cols();
-        int rows = mRgba.rows();
-
-        int xOffset = (mOpenCvCameraView.getWidth() - cols) / 2;
-        int yOffset = (mOpenCvCameraView.getHeight() - rows) / 2;
-
-        int x = (int) event.getX() - xOffset;
-        int y = (int) event.getY() - yOffset;
-
-        Log.i(TAG, "Touch image coordinates: (" + x + ", " + y + ")");
-
-        if ((x < 0) || (y < 0) || (x > cols) || (y > rows)) return false;
-
-        Rect touchedRect = new Rect();
-
-        touchedRect.x = (x > 4) ? x - 4 : 0;
-        touchedRect.y = (y > 4) ? y - 4 : 0;
-
-        touchedRect.width = (x + 4 < cols) ? x + 4 - touchedRect.x : cols - touchedRect.x;
-        touchedRect.height = (y + 4 < rows) ? y + 4 - touchedRect.y : rows - touchedRect.y;
-
-        Mat touchedRegionRgba = mRgba.submat(touchedRect);
-
-        Mat touchedRegionHsv = new Mat();
-        Imgproc.cvtColor(touchedRegionRgba, touchedRegionHsv, Imgproc.COLOR_RGB2HSV_FULL);
-
-        // Calculate average color of touched region
-        mBlobColorHsv = Core.sumElems(touchedRegionHsv);
-        int pointCount = touchedRect.width * touchedRect.height;
-        for (int i = 0; i < mBlobColorHsv.val.length; i++)
-            mBlobColorHsv.val[i] /= pointCount;
-
-        mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
-
-        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
-                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
-
-        if (colorSelectCount++ % 2 == 0) {
-            mDetectorRed.setHsvColor(mBlobColorHsv);
-            Imgproc.resize(mDetectorRed.getSpectrum(), mSpectrumRed, SPECTRUM_SIZE);
-        } else {
-            mDetectorBlue.setHsvColor(mBlobColorHsv);
-            Imgproc.resize(mDetectorBlue.getSpectrum(), mSpectrumBlue, SPECTRUM_SIZE);
-        }
-
-        touchedRegionRgba.release();
-        touchedRegionHsv.release();
+        if(RB.equals("B")){
+            RB = "R";
+        }else RB = "B";
 
         return false; // don't need subsequent touch events
     }
@@ -229,15 +185,15 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mRgba = inputFrame.rgba();
         try{
 
-//            mDetectorBlue.processPolys(mRgba,inputFrame);
-//            mDetectorBlue.showPolys(mRgba);
-            mDetectorRed.processLines(mRgba,inputFrame);
-            mDetectorBlue.processLines(mRgba,inputFrame);
-//            mDetectorWhite.processLines(mRgba,inputFrame);
-            mDetectorRed.showLines(mRgba);
-            mDetectorBlue.showLines(mRgba);
-            Imgproc.circle(mRgba, new Point(mRgba.cols()/2, mRgba.rows()/2), 20, new Scalar(0,255,0), 4);
-//            mDetectorWhite.showHorizontalLines(mRgba);
+            if(RB.equals("B")){
+                mDetectorBlue.processLines(mRgba,inputFrame);
+                mDetectorBlue.showLines(mRgba);
+            }else{
+                mDetectorRed.processLines(mRgba, inputFrame);
+                mDetectorRed.showLines(mRgba);
+            }
+
+            Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-10, 0), new Point(mRgba.cols()/2+10, mRgba.rows()), new Scalar(0,255,0), 4);
         } catch (Exception e) {
             e.printStackTrace();
         }

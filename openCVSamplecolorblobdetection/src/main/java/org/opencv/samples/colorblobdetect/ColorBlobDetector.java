@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.opencv.android.CameraBridgeViewBase;
@@ -16,14 +17,14 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import static android.content.ContentValues.TAG;
 import static org.opencv.imgproc.Imgproc.HoughLinesP;
-import static org.opencv.imgproc.Imgproc.initUndistortRectifyMap;
+import static org.opencv.imgproc.Imgproc.minAreaRect;
 
 public class ColorBlobDetector {
     // Lower and Upper bounds for range checking in HSV color space
@@ -34,7 +35,7 @@ public class ColorBlobDetector {
     private static double mMinContourArea = 0.1;
 
     // Color radius for range checking in HSV color space with touch color
-    private Scalar mColorRadius = new Scalar(25,50,50,0);
+    private Scalar mColorRadius = new Scalar(25, 50, 50, 0);
 
     private Mat mSpectrum = new Mat();
     private List<MatOfPoint> mContours = new ArrayList<MatOfPoint>();
@@ -42,17 +43,15 @@ public class ColorBlobDetector {
 
 
     // Cache
-
     Mat mPyrDownMat = new Mat();
     Mat mHsvMat = new Mat();
     Mat mMask = new Mat();
     Mat mDilatedMask = new Mat();
     Mat mHierarchy = new Mat();
     Mat mLines = new Mat();
-
-    ArrayList<Integer> Xs = new ArrayList<>();
-    ArrayList<Integer> Ys = new ArrayList<>();
     //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
+    ArrayList<Integer> Xs = new ArrayList<>(), Ys = new ArrayList<>();
+    int totalX = 0, totalY = 0;
 
 
     public void setColorRadius(Scalar radius) {
@@ -67,7 +66,7 @@ public class ColorBlobDetector {
     public void checkContours(List<MatOfPoint> contours) {
 
         mPolys.clear();
-        for (MatOfPoint c : contours){
+        for (MatOfPoint c : contours) {
             MatOfPoint2f thisContour2f = new MatOfPoint2f();
             MatOfPoint approxContour = new MatOfPoint();
             MatOfPoint2f approxContour2f = new MatOfPoint2f();
@@ -77,13 +76,13 @@ public class ColorBlobDetector {
             Imgproc.approxPolyDP(thisContour2f, approxContour2f, 2, true);
 
             approxContour2f.convertTo(approxContour, CvType.CV_32S);
-            if(Imgproc.contourArea(approxContour) > 50) mPolys.add(approxContour);
+            if (Imgproc.contourArea(approxContour) > 50) mPolys.add(approxContour);
         }
     }
 
     public void setHsvColor(Scalar hsvColor) {
-        double minH = (hsvColor.val[0] >= mColorRadius.val[0]) ? hsvColor.val[0]-mColorRadius.val[0] : 0;
-        double maxH = (hsvColor.val[0]+mColorRadius.val[0] <= 255) ? hsvColor.val[0]+mColorRadius.val[0] : 255;
+        double minH = (hsvColor.val[0] >= mColorRadius.val[0]) ? hsvColor.val[0] - mColorRadius.val[0] : 0;
+        double maxH = (hsvColor.val[0] + mColorRadius.val[0] <= 255) ? hsvColor.val[0] + mColorRadius.val[0] : 255;
 
         mLowerBound.val[0] = minH;
         mUpperBound.val[0] = maxH;
@@ -111,10 +110,10 @@ public class ColorBlobDetector {
                 mUpperBound.val[1] + "," +
                 mUpperBound.val[2] + ")");
 
-        Mat spectrumHsv = new Mat(1, (int)(maxH-minH), CvType.CV_8UC3);
+        Mat spectrumHsv = new Mat(1, (int) (maxH - minH), CvType.CV_8UC3);
 
-        for (int j = 0; j < maxH-minH; j++) {
-            byte[] tmp = {(byte)(minH+j), (byte)255, (byte)255};
+        for (int j = 0; j < maxH - minH; j++) {
+            byte[] tmp = {(byte) (minH + j), (byte) 255, (byte) 255};
             spectrumHsv.put(0, j, tmp);
         }
 
@@ -129,7 +128,7 @@ public class ColorBlobDetector {
         mMinContourArea = area;
     }
 
-    public void processPolys(Mat mRgba,CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+    public void processPolys(Mat mRgba, CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         try {
             mRgba = inputFrame.rgba();
             Imgproc.cvtColor(mRgba, mHsvMat, Imgproc.COLOR_RGB2HSV_FULL);
@@ -163,20 +162,20 @@ public class ColorBlobDetector {
 
             List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
-            Imgproc.findContours(mMask, contours, mHierarchy , Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            Imgproc.findContours(mRgba, contours, mHierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
             checkContours(contours);
 
-        }catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void showPolys(Mat mRgba){
+    public void showPolys(Mat mRgba) {
         try {
 
-           for(int i = 0; i < mPolys.size();i++) {
-               Imgproc.drawContours(mRgba,mPolys,i,new Scalar(255,255,255),5);
+            for (int i = 0; i < mPolys.size(); i++) {
+                Imgproc.drawContours(mRgba, mPolys, i, new Scalar(255, 255, 255), 5);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -187,9 +186,9 @@ public class ColorBlobDetector {
 
     public void processLines(Mat mRgba, CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
-        Imgproc.cvtColor(mRgba,mHsvMat,Imgproc.COLOR_RGB2HSV_FULL);
-        //Imgproc.pyrDown(mHsvMat,mHsvMat);
-        //Imgproc.pyrDown(mHsvMat,mHsvMat);
+        Imgproc.cvtColor(mRgba, mHsvMat, Imgproc.COLOR_RGB2HSV_FULL);
+//        Imgproc.pyrDown(mHsvMat,mHsvMat);
+//        Imgproc.pyrDown(mHsvMat,mHsvMat);
 
         if (mUpperBound.val[0] < mLowerBound.val[0]) {
 
@@ -210,33 +209,35 @@ public class ColorBlobDetector {
 
             Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask2);
 
-            Core.add(mMask1,mMask2,mMask);
+            Core.add(mMask1, mMask2, mMask);
 
         } else {
             Core.inRange(mHsvMat, mLowerBound, mUpperBound, mMask);
         }
 
-        Imgproc.Canny(mMask, mMask, 50, 70);
+        Imgproc.erode(mMask, mMask, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(5,5)));
+        Imgproc.dilate(mMask,mMask,Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT,new Size(13,13)));
 
-        HoughLinesP(mMask, mLines, 5, Math.PI/180, 7,60/PYR, 20/PYR);
+
+        Imgproc.Canny(mMask, mMask, 50, 100);
+
+        HoughLinesP(mMask, mLines, 5, Math.PI / 180, 7, 60 / PYR, 20 / PYR);
 
         //Imgproc.morphologyEx(mMask,mMask,Imgproc.MORPH_CLOSE,mRectangle);
 
     }
 
-    public void showLines(Mat mRgba){
-        
+    public void showLines(Mat mRgba) {
+
         try {
-            double val0,val1,val2,val3;
-            int lineCount = 0;
-            int totalAngle  = 0;
-            int totalX = 0;
-            int totalY = 0;
+            double val0, val1, val2, val3;
+            LineClusters clusters = new LineClusters();
             for (int i = 0; i < mLines.rows(); i++) {
-                double[] val = mLines.get(i,0);
+                double[] val = mLines.get(i, 0);
 //                double rho = val[0], theta = val[1];
 //                double cosTheta = Math.cos(theta);
 //                double sinTheta = Math.sin(theta);
+//                double x = cosTheta * rho;
 //                double x = cosTheta * rho;
 //                double y = sinTheta * rho;
 //                Point p1 = new Point(x + 10000 * -sinTheta, y + 10000 * cosTheta);
@@ -247,23 +248,20 @@ public class ColorBlobDetector {
                 val2 = val[2] * PYR;
                 val3 = val[3] * PYR;
 
-                totalX+=val0+val2;
-                totalY+=val1+val3;
-                
-                double angle = ((Math.atan2(val1-val3,val0-val2)*180/Math.PI) + 180)%180;
 
-                totalAngle+=angle;
+                double angle = ((Math.atan2(val1 - val3, val0 - val2) * 180 / Math.PI) + 180) % 180;
 
-                Log.println(Log.ASSERT, "TAG", angle+" degrees loop:" + i);
+                //Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
 
-                if(isWithin(angle,30,150) && !isWithin(angle,80,100)) {
+                if ((isWithin(angle, 30, 150) && !isWithin(angle, 80, 100)) &&
+                        val1 > mRgba.rows()/4 && val3 > mRgba.rows()/4) {
                     Imgproc.line(mRgba,
                             new Point(val0, val1),
                             new Point(val2, val3),
-                            new Scalar(0, 255, 0),
+                            new Scalar(255, 255, 255),
                             10);
-
-                    lineCount ++;
+                    clusters.add(new Line(new Point(val0, val1), new Point(val2, val3), angle));
+                    Log.println(Log.ASSERT, "TAG", angle + " is the angle of line " + i);
                 }
 //                else Imgproc.line(mRgba,
 //                            new Point(val0, val1),
@@ -271,16 +269,43 @@ public class ColorBlobDetector {
 //                            new Scalar(255, 0, 0),
 //                            10);
             }
-            Log.println(Log.ASSERT, "TAG", lineCount+"");
-            Log.println(Log.ASSERT, "TAG", totalAngle/mLines.rows()+"");
-            Log.println(Log.ASSERT, "TAG", totalX/mLines.rows()+"");
-            Log.println(Log.ASSERT, "TAG", totalY/mLines.rows()+"");
-            Log.println(Log.ASSERT, "SPEED", Core.getTickFrequency()+"");
+            Log.println(Log.ASSERT, "TAG", clusters.toString() + "\n");
+            final int SHOW_THRESH = 2;
+            for (int i = 0; i < clusters.clusterGroups.size() && i <= 2; i++) {
+                if (clusters.clusterGroups.get(i).lines.size() >= SHOW_THRESH) {
+                    Point[] rectPoints = new Point[4];
+                    MatOfPoint2f mp2f = new MatOfPoint2f();
+                    mp2f.fromList(clusters.clusterGroups.get(i).points);
+                    RotatedRect rRect = minAreaRect(mp2f);
+                    rRect.points(rectPoints);
+                    MatOfPoint mPoints = new MatOfPoint(rectPoints);
+                    List<MatOfPoint> lPoints = new ArrayList<>();
+                    lPoints.add(mPoints);
+                    Log.println(Log.ASSERT, "TAG", Arrays.toString(rectPoints) + "Points");
 
-            totalX = totalX/(2*mLines.rows());
-            totalY = totalY/(2*mLines.rows());
 
-            if(!(Xs.size() < 30) || !(Ys.size() < 30)) {
+                    Imgproc.polylines(mRgba, lPoints, true, new Scalar(0, 255, 0), 10);
+                }
+            }
+
+            int countedCount = 0;
+            totalX = 0;
+            totalY = 0;
+
+            for (LineCluster l : clusters.clusterGroups) {
+                if (l.lines.size() >= SHOW_THRESH) {
+                    totalX += l.center().x;
+                    totalY += l.center().y;
+                    countedCount++;
+                }
+            }
+
+            totalX = totalX / (countedCount);
+            totalY = totalY / (countedCount);
+
+            final int QUEUE_SIZE = 15;
+
+            if (!(Xs.size() < QUEUE_SIZE) || !(Ys.size() < QUEUE_SIZE)) {
                 Xs.remove(0);
                 Ys.remove(0);
             }
@@ -288,26 +313,27 @@ public class ColorBlobDetector {
             Xs.add(totalX);
             Ys.add(totalY);
 
-            Imgproc.circle(mRgba, new Point(median(Xs), median(Ys)),2, new Scalar(255, 0, 0), 5);
+            Imgproc.circle(mRgba, new Point(median(Xs), median(Ys)), 2, new Scalar(255, 0, 0), 5);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static double median(ArrayList<Integer> median){
+
+    public static double median(ArrayList<Integer> median) {
         ArrayList<Integer> m = new ArrayList<>();
-        for(int i : median) m.add(i);
+        for (int i : median) m.add(i);
         Collections.sort(m);
-        if(median.size()%2 == 0)
-            return (m.get(m.size()/2) + m.get(m.size()/2 - 1))/2;
-        else return m.get(m.size()/2);
+        if (median.size() % 2 == 0)
+            return (m.get(m.size() / 2) + m.get(m.size() / 2 - 1)) / 2;
+        else return m.get(m.size() / 2);
     }
 
-    public void showHorizontalLines(Mat mRgba){
+    public void showHorizontalLines(Mat mRgba) {
         try {
-            Imgproc.pyrUp(mLines,mLines);
+            Imgproc.pyrUp(mLines, mLines);
             for (int i = 0; i < mLines.rows(); i++) {
-                double[] val = mLines.get(i,0);
+                double[] val = mLines.get(i, 0);
 //                double rho = val[0], theta = val[1];
 //                double cosTheta = Math.cos(theta);
 //                double sinTheta = Math.sin(theta);
@@ -317,25 +343,26 @@ public class ColorBlobDetector {
 //                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
 
 
-                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+                double angle = Math.atan2(val[1] - val[3], val[0] - val[2]) * 180 / Math.PI;
 
-                Log.println(Log.ASSERT, "TAG", angle+"");
+                Log.println(Log.ASSERT, "TAG", angle + "");
 
-                if(isWithin(angle, 160, 180) || isWithin(angle, -180, -160) || isWithin(angle, -20,20))Imgproc.line(mRgba,
-                        new Point(val[0], val[1]),
-                        new Point(val[2], val[3]),
-                        new Scalar(200, 128, 0),
-                        10);
+                if (isWithin(angle, 160, 180) || isWithin(angle, -180, -160) || isWithin(angle, -20, 20))
+                    Imgproc.line(mRgba,
+                            new Point(val[0], val[1]),
+                            new Point(val[2], val[3]),
+                            new Scalar(200, 128, 0),
+                            10);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void showVerticalLines(Mat mRgba){
+    public void showVerticalLines(Mat mRgba) {
         try {
             for (int i = 0; i < mLines.rows(); i++) {
-                double[] val = mLines.get(i,0);
+                double[] val = mLines.get(i, 0);
 //                double rho = val[0], theta = val[1];
 //                double cosTheta = Math.cos(theta);
 //                double sinTheta = Math.sin(theta);
@@ -345,11 +372,11 @@ public class ColorBlobDetector {
 //                Point p2 = new Point(x - 10000 * -sinTheta, y - 10000 * cosTheta);
 
 
-                double angle = Math.atan2(val[1]-val[3],val[0]-val[2])*180/Math.PI;
+                double angle = Math.atan2(val[1] - val[3], val[0] - val[2]) * 180 / Math.PI;
 
-                Log.println(Log.ASSERT, "TAG", angle+"");
+                Log.println(Log.ASSERT, "TAG", angle + "");
 
-                if(isWithin(angle, 80, 100) || isWithin(angle, -100, -80))Imgproc.line(mRgba,
+                if (isWithin(angle, 80, 100) || isWithin(angle, -100, -80)) Imgproc.line(mRgba,
                         new Point(val[0], val[1]),
                         new Point(val[2], val[3]),
                         new Scalar(0, 255, 0),
@@ -360,8 +387,7 @@ public class ColorBlobDetector {
         }
     }
 
-
-    public boolean isWithin(double val, double low, double high){
+    public boolean isWithin(double val, double low, double high) {
         return val >= low && val <= high;
     }
 
@@ -390,7 +416,7 @@ public class ColorBlobDetector {
 
             Core.inRange(mHsvMat, tLowerBound, tUpperBound, mMask2);
 
-            Core.add(mMask1,mMask2,mMask);
+            Core.add(mMask1, mMask2, mMask);
 
         } else {
             Core.inRange(mHsvMat, mLowerBound, mUpperBound, mMask);
@@ -417,30 +443,152 @@ public class ColorBlobDetector {
         each = contours.iterator();
         while (each.hasNext()) {
             MatOfPoint contour = each.next();
-            if (Imgproc.contourArea(contour) > mMinContourArea*maxArea) {
-                Core.multiply(contour, new Scalar(4,4), contour);
+            if (Imgproc.contourArea(contour) > mMinContourArea * maxArea) {
+                Core.multiply(contour, new Scalar(4, 4), contour);
                 mContours.add(contour);
             }
         }
     }
 
+
     class Line {
         Point p1, p2;
         double angle;
-        public Line(Point p1,Point p2, double angle) {
+
+        public Line(Point p1, Point p2, double angle) {
             this.p1 = p1;
             this.p2 = p2;
             this.angle = angle;
         }
     }
+
     class LineCluster {
-        List<Line> cluster = new ArrayList<>();
+
+        RotatedRect rRect = new RotatedRect();
+        List<Line> lines = new ArrayList<>();
+        List<Point> points = new ArrayList<>();
         double angle = 0;
-        Point upperPoint = new Point();
-        Point lowerPoint = new Point();
+        double area = 0;
+
+        public LineCluster(Line line) {
+            addLine(line);
+        }
+
+        public void addLine(Line line) {
+            lines.add(line);
+            points.add(line.p1);
+            points.add(line.p2);
+            avgAngle();
+            updateRect();
+        }
+
+        private void updateRect() {
+            MatOfPoint2f mp2f = new MatOfPoint2f();
+            mp2f.fromList(points);
+            rRect = minAreaRect(mp2f);
+            area = rRect.size.area();
+        }
+
+        public boolean isClose(Point p, double tolerance) {
+            for (int i = 0; i < points.size(); i++) {
+                if (Math.hypot(p.x - points.get(i).x, p.y - points.get(i).y) <= tolerance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public Point center() {
+            return rRect.center;
+        }
+
+        public void avgAngle() {
+            int n = 0;
+            for (int i = 0; i < lines.size(); i++) {
+                n += lines.get(i).angle;
+            }
+            angle = n / lines.size();
+        }
+
+        public String toString() {
+            avgAngle();
+            return "Angle is " + angle + "Lines are " + lines.size();
+        }
     }
 
-    public List<LineCluster> filteredLines = new ArrayList<>();
+    class LineClusters {
+        List<LineCluster> clusterGroups = new ArrayList<>();
+
+        public void add(Line line) {
+            boolean foundCluster = false;
+            outerloop:
+            for (int i = 0; i < clusterGroups.size(); i++) {
+                for (int j = 0; j < clusterGroups.get(i).lines.size(); j++) {
+                    if (isWithin(line.angle, clusterGroups.get(i).angle - 7, clusterGroups.get(i).angle + 7)) {
+                        if (clusterGroups.get(i).isClose(line.p1, 80) || clusterGroups.get(i).isClose(line.p2, 80)) {
+                            clusterGroups.get(i).addLine(line);
+                            foundCluster = true;
+                            break outerloop;
+                        }
+                    }
+                }
+            }
+            if (!foundCluster) {
+                clusterGroups.add(new LineCluster(line));
+            }
+            quickAreaSort(clusterGroups, 0, clusterGroups.size()-1);
+        }
+
+        public String toString() {
+            String returnVal = "";
+            for (int i = 0; i < clusterGroups.size(); i++) {
+                returnVal += "cluster " + i + " " + clusterGroups.get(i).toString() + "\n";
+            }
+            return returnVal;
+        }
+
+    }
+
+
+    public static void quickAreaSort(List<LineCluster> arr, int low, int high) {
+        if (arr == null || arr.size() == 0)
+            return;
+
+        if (low >= high)
+            return;
+
+        // pick the pivot
+        int middle = low + (high - low) / 2;
+        double pivot = arr.get(middle).area;
+
+        // make left < pivot and right > pivot
+        int i = low, j = high;
+        while (i <= j) {
+            while (arr.get(i).area < pivot) {
+                i++;
+            }
+
+            while (arr.get(i).area > pivot) {
+                j--;
+            }
+
+            if (i <= j) {
+                LineCluster temp = arr.get(i);
+                arr.set(i,arr.get(j));
+                arr.set(j, temp);
+                i++;
+                j--;
+            }
+        }
+
+        // recursively sort two sub parts
+        if (low < j)
+            quickAreaSort(arr, low, j);
+
+        if (high > i)
+            quickAreaSort(arr, i, high);
+    }
+
 
     public List<MatOfPoint> getContours() {
         return mContours;

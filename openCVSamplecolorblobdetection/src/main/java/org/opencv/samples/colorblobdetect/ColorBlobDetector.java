@@ -1,8 +1,14 @@
 package org.opencv.samples.colorblobdetect;
 
+import android.os.Environment;
 import android.provider.ContactsContract;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +58,8 @@ public class ColorBlobDetector {
     //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
     ArrayList<Integer> Xs = new ArrayList<>(), Ys = new ArrayList<>();
     int totalX = 0, totalY = 0;
+
+    LineClusters clusters = new LineClusters();
 
 
     public void setColorRadius(Scalar radius) {
@@ -231,7 +239,7 @@ public class ColorBlobDetector {
 
         try {
             double val0, val1, val2, val3;
-            LineClusters clusters = new LineClusters();
+            clusters = new LineClusters();
             for (int i = 0; i < mLines.rows(); i++) {
                 double[] val = mLines.get(i, 0);
 //                double rho = val[0], theta = val[1];
@@ -271,7 +279,7 @@ public class ColorBlobDetector {
             }
             Log.println(Log.ASSERT, "TAG", clusters.toString() + "\n");
             final int SHOW_THRESH = 2;
-            for (int i = 0; i < clusters.clusterGroups.size() && i <= 2; i++) {
+            for (int i = 0; i < clusters.clusterGroups.size() && i < 2; i++) {
                 if (clusters.clusterGroups.get(i).lines.size() >= SHOW_THRESH) {
                     Point[] rectPoints = new Point[4];
                     MatOfPoint2f mp2f = new MatOfPoint2f();
@@ -292,7 +300,8 @@ public class ColorBlobDetector {
             totalX = 0;
             totalY = 0;
 
-            for (LineCluster l : clusters.clusterGroups) {
+            for (int i = 0; i < 2 && i < clusters.clusterGroups.size(); i++) {
+                LineCluster l = clusters.clusterGroups.get(i);
                 if (l.lines.size() >= SHOW_THRESH) {
                     totalX += l.center().x;
                     totalY += l.center().y;
@@ -448,6 +457,8 @@ public class ColorBlobDetector {
                 mContours.add(contour);
             }
         }
+        
+        
     }
 
 
@@ -462,7 +473,7 @@ public class ColorBlobDetector {
         }
     }
 
-    class LineCluster {
+    class LineCluster implements Comparable{
 
         RotatedRect rRect = new RotatedRect();
         List<Line> lines = new ArrayList<>();
@@ -514,6 +525,15 @@ public class ColorBlobDetector {
             avgAngle();
             return "Angle is " + angle + "Lines are " + lines.size();
         }
+
+        @Override
+        public int compareTo(Object o) {
+            if(o instanceof LineCluster) {
+                if (area > ((LineCluster)o).area) return 1;
+                else if(area < ((LineCluster)o).area) return -1;
+                else return 0;
+            }else return 0;
+        }
     }
 
     class LineClusters {
@@ -533,11 +553,24 @@ public class ColorBlobDetector {
                     }
                 }
             }
+            
             if (!foundCluster) {
                 clusterGroups.add(new LineCluster(line));
             }
-            quickAreaSort(clusterGroups, 0, clusterGroups.size()-1);
+            Collections.sort(clusterGroups);
+            if(clusterGroups.size() >= 2){
+                LineCluster lc = clusterGroups.get(0);
+                LineCluster lc0 = clusterGroups.get(1);
+                if(lc.angle > 90){
+                    logToFile(lc.angle-lc0.angle);
+                }else if(lc0.angle > 90){
+                    logToFile(lc0.angle-lc.angle);
+                }
+
+            }
         }
+
+
 
         public String toString() {
             String returnVal = "";
@@ -550,47 +583,22 @@ public class ColorBlobDetector {
     }
 
 
-    public static void quickAreaSort(List<LineCluster> arr, int low, int high) {
-        if (arr == null || arr.size() == 0)
-            return;
-
-        if (low >= high)
-            return;
-
-        // pick the pivot
-        int middle = low + (high - low) / 2;
-        double pivot = arr.get(middle).area;
-
-        // make left < pivot and right > pivot
-        int i = low, j = high;
-        while (i <= j) {
-            while (arr.get(i).area < pivot) {
-                i++;
-            }
-
-            while (arr.get(i).area > pivot) {
-                j--;
-            }
-
-            if (i <= j) {
-                LineCluster temp = arr.get(i);
-                arr.set(i,arr.get(j));
-                arr.set(j, temp);
-                i++;
-                j--;
-            }
-        }
-
-        // recursively sort two sub parts
-        if (low < j)
-            quickAreaSort(arr, low, j);
-
-        if (high > i)
-            quickAreaSort(arr, i, high);
-    }
-
-
     public List<MatOfPoint> getContours() {
         return mContours;
+    }
+    public void logToFile(Object o){
+        String write = o.toString();
+        File folder = new File(Environment.getExternalStorageDirectory()+"/Angles/Data");
+        File file;
+        try{
+            folder.mkdirs();
+            file = new File(folder.getAbsolutePath()+"/data.txt");
+            if(!file.exists()) file.createNewFile();
+            OutputStream out = new FileOutputStream(file);
+            InputStream in = new FileInputStream(file);
+            String currData = "";
+            while(in.available() > 0) currData+=(char)in.read();
+            out.write((currData+write+"\n").getBytes());
+        }catch(Exception e){}
     }
 }

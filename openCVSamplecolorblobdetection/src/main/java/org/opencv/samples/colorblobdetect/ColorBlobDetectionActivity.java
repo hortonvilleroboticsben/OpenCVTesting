@@ -173,10 +173,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     }
 
     public boolean onTouch(View v, MotionEvent event) {
-        if(RB.equals("B")){
-            RB = "R";
-        }else RB = "B";
-
+       // mDetectorRed.logToFile(mDetectorRed.clusters.clusterGroups.);
         return false; // don't need subsequent touch events
     }
 

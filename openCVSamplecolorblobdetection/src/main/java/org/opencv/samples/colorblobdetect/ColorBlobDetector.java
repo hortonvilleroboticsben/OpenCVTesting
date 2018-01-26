@@ -639,6 +639,7 @@ public class ColorBlobDetector {
             buf.newLine();
             buf.close();
         }
+        //this is a commit
         catch (Exception e)
         {
             // TODO Auto-generated catch block

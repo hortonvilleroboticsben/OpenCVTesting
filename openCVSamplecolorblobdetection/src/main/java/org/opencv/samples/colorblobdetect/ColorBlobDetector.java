@@ -3,10 +3,13 @@ package org.opencv.samples.colorblobdetect;
 import android.os.Environment;
 import android.provider.ContactsContract;
 import android.util.Log;
+import android.widget.Toast;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -558,6 +561,11 @@ public class ColorBlobDetector {
                 clusterGroups.add(new LineCluster(line));
             }
             Collections.sort(clusterGroups);
+
+        }
+
+
+        public void writeInteriorAngle() {
             if(clusterGroups.size() >= 2){
                 LineCluster lc = clusterGroups.get(0);
                 LineCluster lc0 = clusterGroups.get(1);
@@ -569,7 +577,6 @@ public class ColorBlobDetector {
 
             }
         }
-
 
 
         public String toString() {
@@ -586,19 +593,57 @@ public class ColorBlobDetector {
     public List<MatOfPoint> getContours() {
         return mContours;
     }
-    public void logToFile(Object o){
-        String write = o.toString();
-        File folder = new File(Environment.getExternalStorageDirectory()+"/Angles/Data");
-        File file;
-        try{
-            folder.mkdirs();
-            file = new File(folder.getAbsolutePath()+"/data.txt");
-            if(!file.exists()) file.createNewFile();
-            OutputStream out = new FileOutputStream(file);
-            InputStream in = new FileInputStream(file);
-            String currData = "";
-            while(in.available() > 0) currData+=(char)in.read();
-            out.write((currData+write+"\n").getBytes());
-        }catch(Exception e){}
+
+
+    //VERY IMPORTANT! THE 'Y' VALUE THAT IS RETURNED NEEDS TO BE NEGATED TO BE USEFULL
+    //TODO
+    //TODO
+    //TODO
+    public static Point calculateIntersect(double angle1, Point p1, double angle2, Point p2) {
+        Point intersect = new Point();
+        angle1 *= Math.PI/180;
+        angle2 *= Math.PI/180;
+        int x1 = (int) p1.x+5000;
+        int y1 = (int) p1.y+5000;
+        int x2 = (int) p2.x+5000;
+        int y2 = (int) p2.y+5000;
+        double m1 = Math.tan(angle1);
+        double m2 = Math.tan(angle2);
+        int xf = (int) (((-m2*x2) + y2 + (m1 * x1) - y1)/(m1-m2));
+        int yf = (int) ((m1*xf) - (m1*x1) + y1);
+        intersect = new Point(xf-5000,yf-5000);
+        return intersect;
     }
+
+    public static void logToFile(Object o)
+    {
+        String text = o.toString();
+        File logFile = new File(Environment.getExternalStorageDirectory()+"/Angles/Data/data.txt");
+        if (!logFile.exists())
+        {
+            try
+            {
+                logFile.createNewFile();
+            }
+            catch (Exception e)
+            {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+        try
+        {
+            //BufferedWriter for performance, true to set append to file flag
+            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
+            buf.append(text);
+            buf.newLine();
+            buf.close();
+        }
+        catch (Exception e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
 }

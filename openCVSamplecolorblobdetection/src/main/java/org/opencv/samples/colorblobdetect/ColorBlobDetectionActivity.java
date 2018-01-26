@@ -30,6 +30,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.View.OnTouchListener;
 import android.view.SurfaceView;
+import android.widget.Toast;
 
 import static android.R.attr.radius;
 import static android.R.attr.x;
@@ -48,6 +49,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     private Mat mROI;
     private Rect rROI;
     private Point centerROI;
+    int count = 1;
 
     private Scalar mBlobColorRgba;
     private Scalar mBlobColorHsv;
@@ -173,8 +175,30 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     }
 
     public boolean onTouch(View v, MotionEvent event) {
-       // mDetectorRed.logToFile(mDetectorRed.clusters.clusterGroups.);
-        return false; // don't need subsequent touch events
+
+        try{
+
+            if(RB.equals("B")){
+                mDetectorBlue.clusters.writeInteriorAngle();
+            }else{
+                if(count <= 50) {
+                    mDetectorRed.clusters.writeInteriorAngle();
+                    if (mDetectorRed.clusters.clusterGroups.size() >= 2) {
+                        Toast.makeText(this, "LOGGED:"+count, Toast.LENGTH_SHORT).show();
+                    }
+                    count++;
+                    return true;
+                }else {
+                    ColorBlobDetector.logToFile("");
+                    count = 1;
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return true;
+        // don't need subsequent touch events
     }
 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {

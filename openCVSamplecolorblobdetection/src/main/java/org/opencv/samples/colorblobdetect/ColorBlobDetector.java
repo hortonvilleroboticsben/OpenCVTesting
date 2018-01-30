@@ -61,6 +61,7 @@ public class ColorBlobDetector {
     //Mat mRectangle = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(7,7),new Point(7,7));
     ArrayList<Integer> Xs = new ArrayList<>(), Ys = new ArrayList<>();
     int totalX = 0, totalY = 0;
+    Point centerP = new Point();
 
     LineClusters clusters = new LineClusters();
 
@@ -265,7 +266,7 @@ public class ColorBlobDetector {
                 //Log.println(Log.ASSERT, "TAG", angle+"degrees loop:" + i);
 
                 if ((isWithin(angle, 30, 150) && !isWithin(angle, 80, 100)) &&
-                        val1 > mRgba.rows()/4 && val3 > mRgba.rows()/4) {
+                        val1 > mRgba.rows() / 4 && val3 > mRgba.rows() / 4) {
                     Imgproc.line(mRgba,
                             new Point(val0, val1),
                             new Point(val2, val3),
@@ -324,8 +325,12 @@ public class ColorBlobDetector {
 
             Xs.add(totalX);
             Ys.add(totalY);
-
-            Imgproc.circle(mRgba, new Point(median(Xs), median(Ys)), 2, new Scalar(255, 0, 0), 5);
+            centerP = new Point(median(Xs), median(Ys));
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        try{
+            Imgproc.circle(mRgba, centerP, 2, new Scalar(255, 0, 0), 5);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -565,16 +570,11 @@ public class ColorBlobDetector {
         }
 
 
-        public void writeInteriorAngle() {
+        public void writeSolutionPoint() {
             if(clusterGroups.size() >= 2){
                 LineCluster lc = clusterGroups.get(0);
                 LineCluster lc0 = clusterGroups.get(1);
-                if(lc.angle > 90){
-                    logToFile(lc.angle-lc0.angle);
-                }else if(lc0.angle > 90){
-                    logToFile(lc0.angle-lc.angle);
-                }
-
+                logToFile(calculateIntersect(lc.angle, lc.center(), lc0.angle, lc0.center()));
             }
         }
 
@@ -599,20 +599,20 @@ public class ColorBlobDetector {
     //TODO
     //TODO
     //TODO
-    public static Point calculateIntersect(double angle1, Point p1, double angle2, Point p2) {
+    public static String calculateIntersect(double angle1, Point p1, double angle2, Point p2) {
         Point intersect = new Point();
         angle1 *= Math.PI/180;
         angle2 *= Math.PI/180;
-        int x1 = (int) p1.x+5000;
-        int y1 = (int) p1.y+5000;
-        int x2 = (int) p2.x+5000;
-        int y2 = (int) p2.y+5000;
+        int x1 = (int) p1.x;
+        int y1 = -(int) p1.y;
+        int x2 = (int) p2.x;
+        int y2 = -(int) p2.y;
         double m1 = Math.tan(angle1);
         double m2 = Math.tan(angle2);
         int xf = (int) (((-m2*x2) + y2 + (m1 * x1) - y1)/(m1-m2));
         int yf = (int) ((m1*xf) - (m1*x1) + y1);
-        intersect = new Point(xf-5000,yf-5000);
-        return intersect;
+        intersect = new Point(xf,yf);
+        return intersect.x+"\t"+intersect.y;
     }
 
     public static void logToFile(Object o)
@@ -636,7 +636,7 @@ public class ColorBlobDetector {
             //BufferedWriter for performance, true to set append to file flag
             BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
             buf.append(text);
-            buf.newLine();
+            buf.append(System.lineSeparator());
             buf.close();
         }
         //this is a commit

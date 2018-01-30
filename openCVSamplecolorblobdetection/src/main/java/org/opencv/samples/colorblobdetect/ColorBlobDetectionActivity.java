@@ -1,17 +1,11 @@
 package org.opencv.samples.colorblobdetect;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
@@ -19,7 +13,6 @@ import org.opencv.core.Size;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.imgproc.Moments;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -32,12 +25,8 @@ import android.view.View.OnTouchListener;
 import android.view.SurfaceView;
 import android.widget.Toast;
 
-import static android.R.attr.radius;
-import static android.R.attr.x;
-import static android.R.attr.y;
 import static org.opencv.imgproc.Imgproc.HoughLines;
 import static org.opencv.imgproc.Imgproc.HoughLinesP;
-import static org.opencv.imgproc.Imgproc.minEnclosingCircle;
 import static org.opencv.imgproc.Imgproc.moments;
 
 public class ColorBlobDetectionActivity extends Activity implements OnTouchListener, CvCameraViewListener2 {
@@ -70,7 +59,9 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     private Scalar ROI_COLOR;
 
-    String RB = "R";
+    String RB = "B";
+    boolean canCount = false;
+    int sampleSize = 1000;
 
     private CameraBridgeViewBase mOpenCvCameraView;
 
@@ -178,21 +169,12 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
         try{
 
+            canCount = true;
+
             if(RB.equals("B")){
-                mDetectorBlue.clusters.writeInteriorAngle();
+
             }else{
-                if(count <= 50) {
-                    mDetectorRed.clusters.writeInteriorAngle();
-                    if (mDetectorRed.clusters.clusterGroups.size() >= 2) {
-                        Toast.makeText(this, "LOGGED:"+count, Toast.LENGTH_SHORT).show();
-                    }
-                    count++;
-                    return true;
-                }else {
-                    ColorBlobDetector.logToFile("");
-                    count = 1;
-                    return false;
-                }
+
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -206,15 +188,44 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mRgba = inputFrame.rgba();
         try{
 
-            if(RB.equals("B")){
-                mDetectorBlue.processLines(mRgba,inputFrame);
+            if (RB.equals("B")) {
+                mDetectorBlue.processLines(mRgba, inputFrame);
                 mDetectorBlue.showLines(mRgba);
-            }else{
+                if(canCount){
+                    if (count <= sampleSize) {
+                        if(isWithin(mDetectorBlue.centerP.x, mRgba.cols()/2-15, mRgba.cols()/2+15)) {
+                            mDetectorBlue.clusters.writeSolutionPoint();
+                            count++;
+                        }
+                    } else {
+                        ColorBlobDetector.logToFile(System.lineSeparator());
+                        count = 1;
+                        canCount = false;
+                        Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-15, 0), new Point(mRgba.cols()/2+15, mRgba.rows()), new Scalar(0,0,255), 4);
+                        return mRgba;
+                    }
+                }
+            } else {
                 mDetectorRed.processLines(mRgba, inputFrame);
                 mDetectorRed.showLines(mRgba);
+                if(canCount){
+                    if (count <= sampleSize) {
+                        if(isWithin(mDetectorRed.centerP.x, mRgba.cols()/2-15, mRgba.cols()/2+15)) {
+                            mDetectorRed.clusters.writeSolutionPoint();
+                            count++;
+                        }
+                    } else {
+                        ColorBlobDetector.logToFile(System.lineSeparator());
+                        count = 1;
+                        canCount = false;
+                        Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-15, 0), new Point(mRgba.cols()/2+15, mRgba.rows()), new Scalar(0,0,255), 4);
+                        return mRgba;
+                    }
+                }
             }
 
-            Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-10, 0), new Point(mRgba.cols()/2+10, mRgba.rows()), new Scalar(0,255,0), 4);
+            if(!canCount) Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-15, 0), new Point(mRgba.cols()/2+15, mRgba.rows()), new Scalar(0,255,0), 4);
+            else Imgproc.rectangle(mRgba, new Point(mRgba.cols()/2-15, 0), new Point(mRgba.cols()/2+15, mRgba.rows()), new Scalar((int)(255.-255.*((double)count/sampleSize)),255.*((double)count/sampleSize),0), 4);
         } catch (Exception e) {
             e.printStackTrace();
         }
